@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #16161f;
+    --border: #2a2a3a;
+    --accent: #7fff6e;
+    --accent2: #ff6b6b;
+    --accent3: #6eb5ff;
+    --accent4: #ffcc44;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --glow: rgba(127,255,110,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(127,255,110,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(127,255,110,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--muted); }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    max-width: 340px;
+  }
+
+  /* Input Section */
+  .input-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .input-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .input-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 14px 18px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+
+  .btn-analyze {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 3px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-analyze:hover { background: #a0ffb0; transform: translateY(-1px); }
+  .btn-analyze:active { transform: translateY(0); }
+  .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 60px 0;
+  }
+
+  .loading.active { display: block; }
+
+  .loading-ring {
+    width: 56px;
+    height: 56px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+
+  .loading-steps {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .loading-step {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .loading-step.active {
+    color: var(--accent);
+    opacity: 1;
+  }
+
+  /* Results */
+  #results { display: none; }
+  #results.active { display: block; animation: fadeUp 0.5s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Score Banner */
+  .score-banner {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 40px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 40px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-circle {
+    width: 140px;
+    height: 140px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .score-circle svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .score-circle .track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+
+  .score-circle .fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .score-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .score-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .score-meta h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .score-grade {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+  }
+
+  .score-summary {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 480px;
+  }
+
+  .score-url {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  /* Category Grid */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .cat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+
+  .cat-card:hover { border-color: currentColor; }
+  .cat-card:hover::after { transform: scaleX(1); }
+
+  .cat-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .cat-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .cat-score-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .cat-score-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: currentColor;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    width: 0%;
+  }
+
+  .cat-score-val {
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Details Panel */
+  .details-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .details-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .details-header:hover { background: var(--surface2); }
+
+  .details-header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .details-header-score {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .chevron {
+    color: var(--muted);
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+
+  .details-header.open .chevron { transform: rotate(180deg); }
+
+  .details-body {
+    display: none;
+    padding: 24px;
+  }
+
+  .details-body.open { display: block; }
+
+  .check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .check-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .check-content { flex: 1; }
+  .check-label { font-weight: 500; margin-bottom: 2px; }
+  .check-detail { color: var(--muted); font-size: 11px; }
+
+  .check-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  /* Improvements */
+  .improvements {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .improve-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .improve-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: start;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 3px;
+    border-left: 3px solid;
+    font-size: 12px;
+  }
+
+  .improve-priority {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  .improve-content {}
+  .improve-title { font-weight: 500; margin-bottom: 3px; font-family: 'Syne', sans-serif; }
+  .improve-desc { color: var(--muted); line-height: 1.6; font-size: 11px; }
+
+  .improve-impact {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .impact-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    display: block;
+  }
+
+  /* Error */
+  .error-box {
+    display: none;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.3);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--accent2);
+  }
+
+  .error-box.active { display: block; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .score-banner { grid-template-columns: 1fr; text-align: center; }
+    .score-circle { margin: 0 auto; }
+    .input-row { flex-direction: column; }
+    .header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+
+  /* Color helpers */
+  .c-green { color: var(--accent); }
+  .c-red { color: var(--accent2); }
+  .c-blue { color: var(--accent3); }
+  .c-yellow { color: var(--accent4); }
+
+  .bg-green { background: rgba(127,255,110,0.12); color: var(--accent); }
+  .bg-red { background: rgba(255,107,107,0.12); color: var(--accent2); }
+  .bg-yellow { background: rgba(255,204,68,0.12); color: var(--accent4); }
+  .bg-blue { background: rgba(110,181,255,0.12); color: var(--accent3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1><em>SEO</em><br>ANALYZER</h1>
+      <p class="tagline">AI-powered audit engine. Paste a URL and get a full breakdown in seconds.</p>
+    </div>
+    <div class="logo">RANK<span>SCAN</span></div>
+  </div>
+
+  <div class="input-section">
+    <label class="input-label">↗ Target URL</label>
+    <div class="input-row">
+      <input type="text" id="urlInput" placeholder="https://example.com" />
+      <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()">Analyze →</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="loading" id="loading">
+    <div class="loading-ring"></div>
+    <div class="loading-text">SCANNING TARGET</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step1">→ Fetching page structure...</div>
+      <div class="loading-step" id="step2">→ Analyzing meta signals...</div>
+      <div class="loading-step" id="step3">→ Evaluating content quality...</div>
+      <div class="loading-step" id="step4">→ Checking technical factors...</div>
+      <div class="loading-step" id="step5">→ Computing SEO score...</div>
+    </div>
+  </div>
+
+  <div id="results">
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-circle">
+        <svg viewBox="0 0 120 120">
+          <circle class="track" cx="60" cy="60" r="52"/>
+          <circle class="fill" id="scoreArc" cx="60" cy="60" r="52"
+            stroke-dasharray="326.7"
+            stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="score-text">
+          <div class="score-num" id="scoreNum">0</div>
+          <div class="score-label">/100</div>
+        </div>
+      </div>
+      <div class="score-meta">
+        <div class="score-url" id="scoreUrl"></div>
+        <h2 id="scoreTitle">SEO Health Report</h2>
+        <div class="score-grade" id="scoreGrade"></div>
+        <div class="score-summary" id="scoreSummary"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Category Breakdown</div>
+    <div class="categories" id="categoriesGrid"></div>
+
+    <div id="detailsContainer"></div>
+
+    <div class="improvements">
+      <div class="section-title">Priority Improvements</div>
+      <div class="improve-list" id="improveList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+async function startAnalysis() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showError('Please enter a URL to analyze.'); return; }
+
+  let normalized = url;
+  if (!normalized.match(/^https?:\/\//)) normalized = 'https://' + normalized;
+
+  try { new URL(normalized); } catch(e) { showError('Invalid URL. Please enter a valid website address.'); return; }
+
+  document.getElementById('urlInput').value = normalized;
+  document.getElementById('errorBox').classList.remove('active');
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('analyzeBtn').disabled = true;
+
+  showLoading();
+  animateSteps();
+
+  try {
+    const report = await callClaude(normalized);
+    await sleep(500);
+    hideLoading();
+    renderResults(report, normalized);
+  } catch(e) {
+    hideLoading();
+    showError('Analysis failed: ' + e.message);
+  }
+
+  document.getElementById('analyzeBtn').disabled = false;
+}
+
+async function callClaude(url) {
+  const prompt = `You are an expert SEO analyst. Analyze the website at this URL: ${url}
+
+Based on your knowledge of SEO best practices, the URL structure, domain, and common patterns for this type of website, provide a detailed SEO analysis.
+
+Return ONLY a valid JSON object (no markdown, no code fences) with this exact structure:
+{
+  "overallScore": <number 0-100>,
+  "grade": "<Excellent|Good|Fair|Poor>",
+  "summary": "<2-3 sentence executive summary of SEO health>",
+  "categories": [
+    {
+      "name": "On-Page SEO",
+      "icon": "📄",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [
+        {"label": "<check name>", "status": "pass|warn|fail", "detail": "<explanation>"},
+        ...
+      ]
+    },
+    {
+      "name": "Technical SEO",
+      "icon": "⚙️",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [...]
+    },
+    {
+      "name": "Content Quality",
+      "icon": "✍️",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [...]
+    },
+    {
+      "name": "Mobile & UX",
+      "icon": "📱",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [...]
+    },
+    {
+      "name": "Link Profile",
+      "icon": "🔗",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [...]
+    },
+    {
+      "name": "Performance",
+      "icon": "⚡",
+      "score": <0-100>,
+      "color": "green|yellow|red",
+      "checks": [...]
+    }
+  ],
+  "improvements": [
+    {
+      "priority": "critical|high|medium|low",
+      "title": "<action title>",
+      "description": "<specific actionable advice>",
+      "impact": "<+5 pts|+8 pts|+12 pts etc>"
+    },
+    ...
+  ]
+}
+
+Provide exactly 4 checks per category (no more). Provide exactly 6 improvements sorted by priority. Keep all text values short and concise. Be specific and realistic about the URL provided.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  const data = await response.json();
+
+  const text = data.content
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+
+  return parseJSON(text);
+}
+
+function parseJSON(raw) {
+  // Strip markdown fences
+  let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+  // Extract outermost JSON object
+  const start = clean.indexOf('{');
+  if (start === -1) throw new Error('No JSON object found in response');
+  clean = clean.substring(start);
+
+  // Try direct parse first
+  try { return JSON.parse(clean); } catch(_) {}
+
+  // Find the last valid closing brace by trying progressively shorter strings
+  for (let i = clean.length - 1; i > start; i--) {
+    if (clean[i] === '}') {
+      try { return JSON.parse(clean.substring(0, i + 1)); } catch(_) {}
+    }
+  }
+
+  // Last resort: attempt to auto-repair truncated JSON
+  try { return JSON.parse(repairJSON(clean)); } catch(e) {
+    throw new Error('Could not parse SEO analysis response. Please try again.');
+  }
+}
+
+function repairJSON(str) {
+  // Close any open arrays and objects to fix truncation
+  let s = str.trimEnd();
+  // Remove trailing comma before attempting close
+  s = s.replace(/,\s*$/, '');
+
+  const opens = [];
+  let inStr = false, escape = false;
+  for (const ch of s) {
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inStr) { escape = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '{') opens.push('}');
+    else if (ch === '[') opens.push(']');
+    else if (ch === '}' || ch === ']') opens.pop();
+  }
+  // Close all open structures in reverse
+  return s + opens.reverse().join('');
+}
+
+function renderResults(report, url) {
+  document.getElementById('scoreUrl').textContent = url;
+  document.getElementById('scoreTitle').textContent = 'SEO Health Report';
+  document.getElementById('scoreSummary').textContent = report.summary;
+
+  // Score animation
+  const score = report.overallScore;
+  const arc = document.getElementById('scoreArc');
+  const circumference = 326.7;
+  const color = score >= 75 ? 'var(--accent)' : score >= 50 ? 'var(--accent4)' : 'var(--accent2)';
+  arc.style.stroke = color;
+  document.getElementById('scoreNum').style.color = color;
+
+  // Grade
+  const gradeEl = document.getElementById('scoreGrade');
+  const gradeClass = score >= 75 ? 'bg-green' : score >= 50 ? 'bg-yellow' : 'bg-red';
+  gradeEl.className = `score-grade ${gradeClass}`;
+  gradeEl.textContent = report.grade;
+
+  // Animate score
+  let cur = 0;
+  const target = score;
+  const numEl = document.getElementById('scoreNum');
+  const tick = setInterval(() => {
+    cur = Math.min(cur + 2, target);
+    numEl.textContent = cur;
+    arc.style.strokeDashoffset = circumference - (circumference * cur / 100);
+    if (cur >= target) clearInterval(tick);
+  }, 20);
+
+  // Categories
+  const grid = document.getElementById('categoriesGrid');
+  grid.innerHTML = '';
+  report.categories.forEach(cat => {
+    const colorVar = cat.color === 'green' ? 'var(--accent)' :
+                     cat.color === 'yellow' ? 'var(--accent4)' : 'var(--accent2)';
+    grid.innerHTML += `
+      <div class="cat-card" style="color:${colorVar}" onclick="toggleDetails('${cat.name}')">
+        <div class="cat-icon">${cat.icon}</div>
+        <div class="cat-name">${cat.name}</div>
+        <div class="cat-score-bar"><div class="cat-score-fill" id="fill-${slugify(cat.name)}" style="width:0%"></div></div>
+        <div class="cat-score-val">
+          <span>${cat.score}/100</span>
+          <span>${getGradeLabel(cat.score)}</span>
+        </div>
+      </div>`;
+  });
+
+  // Animate bars
+  setTimeout(() => {
+    report.categories.forEach(cat => {
+      const el = document.getElementById('fill-' + slugify(cat.name));
+      if (el) el.style.width = cat.score + '%';
+    });
+  }, 100);
+
+  // Details
+  const dc = document.getElementById('detailsContainer');
+  dc.innerHTML = '';
+  report.categories.forEach((cat, i) => {
+    const colorVar = cat.color === 'green' ? 'var(--accent)' :
+                     cat.color === 'yellow' ? 'var(--accent4)' : 'var(--accent2)';
+    const checks = cat.checks.map(c => {
+      const icon = c.status === 'pass' ? '✓' : c.status === 'warn' ? '△' : '✗';
+      const badgeClass = c.status === 'pass' ? 'bg-green' : c.status === 'warn' ? 'bg-yellow' : 'bg-red';
+      const badgeText = c.status === 'pass' ? 'PASS' : c.status === 'warn' ? 'WARN' : 'FAIL';
+      return `
+        <div class="check-item">
+          <span class="check-icon ${c.status === 'pass' ? 'c-green' : c.status === 'warn' ? 'c-yellow' : 'c-red'}">${icon}</span>
+          <div class="check-content">
+            <div class="check-label">${c.label}</div>
+            <div class="check-detail">${c.detail}</div>
+          </div>
+          <span class="check-badge ${badgeClass}">${badgeText}</span>
+        </div>`;
+    }).join('');
+
+    dc.innerHTML += `
+      <div class="details-panel" id="panel-${slugify(cat.name)}">
+        <div class="details-header" id="header-${slugify(cat.name)}" onclick="toggleDetails('${cat.name}')">
+          <div class="details-header-title">
+            <span>${cat.icon}</span>
+            <span>${cat.name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="details-header-score" style="color:${colorVar}">${cat.score}</span>
+            <span class="chevron">▼</span>
+          </div>
+        </div>
+        <div class="details-body" id="body-${slugify(cat.name)}">
+          <div class="check-list">${checks}</div>
+        </div>
+      </div>`;
+  });
+
+  // Improvements
+  const il = document.getElementById('improveList');
+  il.innerHTML = '';
+  report.improvements.forEach(imp => {
+    const borderColor = imp.priority === 'critical' ? 'var(--accent2)' :
+                        imp.priority === 'high' ? 'var(--accent4)' :
+                        imp.priority === 'medium' ? 'var(--accent3)' : 'var(--muted)';
+    const badgeClass = imp.priority === 'critical' ? 'bg-red' :
+                       imp.priority === 'high' ? 'bg-yellow' :
+                       imp.priority === 'medium' ? 'bg-blue' : '';
+    il.innerHTML += `
+      <div class="improve-item" style="border-left-color:${borderColor}">
+        <span class="improve-priority ${badgeClass}">${imp.priority.toUpperCase()}</span>
+        <div class="improve-content">
+          <div class="improve-title">${imp.title}</div>
+          <div class="improve-desc">${imp.description}</div>
+        </div>
+        <div class="improve-impact">
+          <span class="impact-val" style="color:${borderColor}">${imp.impact}</span>
+          <span>potential</span>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('results').classList.add('active');
+}
+
+function toggleDetails(catName) {
+  const slug = slugify(catName);
+  const header = document.getElementById('header-' + slug);
+  const body = document.getElementById('body-' + slug);
+  if (!header || !body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open');
+  header.classList.toggle('open');
+}
+
+function showLoading() {
+  document.getElementById('loading').classList.add('active');
+}
+
+function hideLoading() {
+  document.getElementById('loading').classList.remove('active');
+  document.querySelectorAll('.loading-step').forEach(s => s.classList.remove('active'));
+}
+
+function animateSteps() {
+  const steps = [1,2,3,4,5];
+  steps.forEach((n, i) => {
+    setTimeout(() => {
+      steps.forEach(m => document.getElementById('step'+m).classList.remove('active'));
+      document.getElementById('step'+n).classList.add('active');
+    }, i * 1200);
+  });
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '✗ ' + msg;
+  el.classList.add('active');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function slugify(str) { return str.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); }
+
+function getGradeLabel(score) {
+  if (score >= 80) return 'Excellent';
+  if (score >= 65) return 'Good';
+  if (score >= 45) return 'Fair';
+  return 'Poor';
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startAnalysis();
+});
+</script>
+</body>
+</html>
